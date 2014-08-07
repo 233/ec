@@ -34,18 +34,21 @@ def main(args):
     sys.exit(0)
 
 
-def handle(src):
+def handle(src, region=None):
     """Given a folder, find all xls, xlsx sheets and parse
     First sheets (0) found
     """
+    if not region:
+        region = fname(src)
+
     if os.path.isfile(src) and is_xls(src):
         lines = scan(src)
-        return parse(src, lines)
+        return parse(src, lines, region)
     elif os.path.isdir(src):
         xs = []
         for f in os.listdir(src):
             path = os.path.abspath(os.path.join(src, f))
-            xs.extend(handle(path))
+            xs.extend(handle(path, fname(src)))
         return xs
 
 def scan(src):
@@ -53,32 +56,31 @@ def scan(src):
     sheet = wb.sheets()[0]
     return (scan_row(sheet.row_values(i)) for i in range(sheet.nrows))
 
-IC = re.IGNORECASE
-
 def scan_row(row):
-    try:
-        if row[1] and row[2]:
-            for p in HEADER_PATTERNS:
-                if re.match(p, row[1], flags=IC) or re.match(p, row[2], flags=IC):
-                    break
-            else:
-                return (DATA, [' '.join(x.strip().split()) for x in row[1:3]])
-        elif row[0]:
-            m = re.match(DISTRICT_PATTERN, row[0], flags=IC)
-            if m:
-                return (DISTRICT, m.group(1).strip())
-    except Exception, e:
-        print '>>>>', e
-        sys.exit(1)
+    # try:
+    if len(row) >= 3 and row[1] and row[2]:
+        for p in HEADER_PATTERNS:
+            if re.match(p, row[1], flags=re.I) or re.match(p, row[2], flags=re.I):
+                break
+        else:
+            return (DATA, [' '.join(x.strip().split()) for x in row[1:3]])
+    elif len(row) >= 1 and row[0]:
+        m = re.match(DISTRICT_PATTERN, unicode(row[0]), flags=re.I|re.UNICODE)
+        if m:
+            return (DISTRICT, m.group(1).strip())
+    # except Exception, e:
+        # print '>>>>', e
+        # raise e
+        # sys.exit(1)
     return (SKIP, None) 
 
-def parse(src, lines):
+def parse(src, lines, region):
     """
     Assume the district name is fname (minus ext) until 
     We meet a District pattern.
     """
     
-    district = src.split('/')[-1].split('.')[0]
+    district = fname(src)
 
     xs = []
 
@@ -87,7 +89,7 @@ def parse(src, lines):
             kind, val = lines.next()
 
             if kind is DATA:
-                xs.append([district] + val)
+                xs.append([region, district] + val)
             elif kind is DISTRICT:
                 district = val
 
@@ -103,6 +105,11 @@ def open_wb(fname):
 def is_xls(src):
     return re.match(r'^.+\.xlsx?$', src)
 
+def fname(src):
+    src = src.strip().replace('\\', '')
+    while src.endswith('/'):
+        src = src[:-1]
+    return src.split('/')[-1].split('.')[0]
 
 if __name__ == "__main__":
     main(sys.argv)
