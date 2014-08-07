@@ -1,3 +1,8 @@
+"""
+The Electoral Commission of Ghana is undertaking a Registration Excercise.
+This is a quick hack to normalize data for designated registration centres
+"""
+
 from xlrd import open_workbook
 
 WB = '/home/eokyere/Desktop/EC/data/centres.xls'
